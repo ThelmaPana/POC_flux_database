@@ -3208,7 +3208,7 @@ font-family: inherit;
 <h3 class="anchored" data-anchor-id="nowicki-2022">Nowicki 2022</h3>
 <div class="cell page-columns page-full">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Open file and extract variables</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>nc_now_2022 <span class="ot">&lt;-</span> <span class="fu">nc_open</span>(<span class="st">&quot;data/raw/19074521/biopump_model_output.nc&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>nc_now_2022 <span class="ot">&lt;-</span> <span class="fu">nc_open</span>(<span class="st">&quot;data/raw/biopump_model_output.nc&quot;</span>)</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>nc_data_now_2022 <span class="ot">&lt;-</span> nc_now_2022 <span class="sc">%&gt;%</span></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  {<span class="fu">list</span>(</span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">lon =</span> <span class="fu">ncvar_get</span>(., <span class="st">&quot;LON&quot;</span>)[<span class="dv">1</span>,,<span class="dv">1</span>], </span>
@@ -3712,7 +3712,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script>
 </div> <!-- /content -->
-<script>var lightboxQuarto = GLightbox({"selector":".lightbox","openEffect":"zoom","descPosition":"bottom","loop":false,"closeEffect":"zoom"});
+<script>var lightboxQuarto = GLightbox({"openEffect":"zoom","closeEffect":"zoom","selector":".lightbox","loop":false,"descPosition":"bottom"});
 window.onload = () => {
   lightboxQuarto.on('slide_before_load', (data) => {
     const { slideIndex, slideNode, slideConfig, player, trigger } = data;

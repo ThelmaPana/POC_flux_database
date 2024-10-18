@@ -88,7 +88,7 @@ ggplot(df_wang_2023) +
 #| out-width: 100%
 
 # Open file and extract variables
-nc_now_2022 <- nc_open("data/raw/19074521/biopump_model_output.nc")
+nc_now_2022 <- nc_open("data/raw/biopump_model_output.nc")
 nc_data_now_2022 <- nc_now_2022 %>%
   {list(
     lon = ncvar_get(., "LON")[1,,1], 

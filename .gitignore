@@ -51,3 +51,6 @@ rsconnect/
 
 # Draft
 draft*
+
+# Raw data (large files)
+data/raw/
