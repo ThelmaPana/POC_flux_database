@@ -1,0 +1,195 @@
+---
+title: "Read and format POC flux datasets"
+author: "Thelma Panaïotis"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+editor: visual
+lightbox: true
+execute:
+  cache: true
+  warning: false
+---
+
+```{r set_up}
+#| output: false
+#| cache: false
+source("utils.R")
+```
+
+## Read datasets
+
+### Wang 2023
+
+```{r wang_2023}
+#| fig-column: body-outset
+#| out-width: 100%
+
+# Read matrix of export data
+mat_exp <- readMat("data/raw/Cexp_CAFE_kl24h.mat")$EXP
+
+# Define target fields and corresponding depths
+targets <- c("POC100", "POC1000")
+depths <- c("POC100" = 100, "POC1000" = 1000)
+
+# Set up longitude and latitude grids
+lon_values <- (0.5:179.5) * 2 # longitude values
+lat_values <- (0:90) * 2 - 90 # latitude values
+
+# Function to process each target field
+process_target <- function(targ) {
+  
+  # Extract the relevant matrix for the target
+  d <- mat_exp[,,1][[targ]]
+  
+  # Convert matrix to dataframe with lat and lon as rownames and colnames
+  df <- as.data.frame(d) %>%
+    rownames_to_column(var = "lat") %>%
+    setNames(c("lat", lon_values)) %>%
+    pivot_longer(cols = -lat, names_to = "lon", values_to = "poc_flux") %>%
+    mutate(
+      # Convert lat and lon to numeric
+      lat = as.numeric(lat_values[as.numeric(lat)]),
+      lon = as.numeric(lon),
+      
+      # Recenter longitude over the Atlantic Ocean
+      lon = ifelse(lon > 180, lon - 360, lon),
+      
+      # Assign depth and apply the flux conversion
+      depth = depths[targ],
+      poc_flux = ifelse(poc_flux == 0, NA, poc_flux),
+      poc_flux = poc_flux / 365.25 * 12  # Convert POC flux from mmol m⁻² y⁻¹ to mg C m⁻² d⁻¹
+    )
+  
+  return(df)
+}
+
+# Apply the function to all targets and bind rows into a single dataframe and add source
+df_wang_2023 <- map_dfr(targets, process_target) %>% 
+  mutate(source = "Wang 2023") %>% 
+  select(lon, lat, depth, poc_flux, source)
+
+# Plot to check
+ggplot(df_wang_2023) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1)
+```
+
+### Nowicki 2022
+
+```{r nowicki_2022}
+#| fig-column: body-outset
+#| out-width: 100%
+
+# Open file and extract variables
+nc_now_2022 <- nc_open("data/raw/19074521/biopump_model_output.nc")
+nc_data_now_2022 <- nc_now_2022 %>%
+  {list(
+    lon = ncvar_get(., "LON")[1,,1], 
+    lat = ncvar_get(., "LAT")[,1,1], 
+    depth = ncvar_get(., "DEPTH")[1,1,], 
+    poc_flux = ncvar_get(., "POCflux") # mmolC/m^2/yr
+  )} 
+# Close file
+nc_close(nc_now_2022)
+
+
+# To vector and to single column df
+df_now_2022 <- nc_data_now_2022$poc_flux %>% as.vector() %>% as.data.frame() %>% setNames("poc_flux")
+# Add lon, lat and depth
+df_now_2022$lat <- nc_data_now_2022$lat # need to start with lat because of how data is stored
+df_now_2022$lon <- rep(nc_data_now_2022$lon, each = length(nc_data_now_2022$lat))
+df_now_2022$depth <- rep(nc_data_now_2022$depth, each = length(nc_data_now_2022$lon)*length(nc_data_now_2022$lat))
+
+# Clean and reformat data
+df_now_2022 <- df_now_2022 %>% 
+  as_tibble() %>% 
+  mutate(
+    lon = ifelse(lon > 180, lon - 360, lon), # Center map on 0 longitude
+    poc_flux = ifelse(poc_flux == 0, NA, poc_flux),
+    poc_flux = poc_flux / 365.25 * 12,       # Convert mmol m⁻² y⁻¹ to mgC m⁻² d⁻¹
+    source = "Nowicki 2022"
+  ) %>%
+  filter(between(depth, 90, 100) | between(depth, 900, 1000)) %>%
+  mutate(
+    depth = case_when(
+      depth < 100 ~ 100,
+      depth > 100 ~ 1000
+    )
+  ) %>%
+  select(lon, lat, depth, poc_flux, source) # Reorganize the final columns
+
+# Plot to check
+ggplot(df_now_2022) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1)
+```
+
+### Schlitzer 2000
+
+```{r schlitzer_2000}
+#| fig-column: body-outset
+#| out-width: 100%
+
+# Open file and extract variables
+nc_sch_2000 <- nc_open("data/raw/schlitzer_POCfill_360_180g.nc")
+nc_data_sch_2000 <- nc_sch_2000 %>%
+  {list(
+    lon = ncvar_get(., "NEWX2"), 
+    lat = ncvar_get(., "NEWY"), 
+    depth = ncvar_get(., "DEPTH"), 
+    poc_flux = ncvar_get(., "POC_EXPORT") # gC/m^2/yr
+  )}
+# Close file
+nc_close(nc_sch_2000)
+
+# To vector and to single column df
+df_sch_2000 <- nc_data_sch_2000$poc_flux %>% as.vector() %>% as.data.frame() %>% setNames("poc_flux")
+# Add lon, lat and depth
+df_sch_2000$lon <- nc_data_sch_2000$lon
+df_sch_2000$lat <- rep(nc_data_sch_2000$lat, each = length(nc_data_sch_2000$lon))
+df_sch_2000$depth <- rep(nc_data_sch_2000$depth, each = length(nc_data_sch_2000$lon)*length(nc_data_sch_2000$lat))
+
+# Clean and reformat data
+df_sch_2000 <- df_sch_2000 %>% 
+  as_tibble() %>% 
+  mutate(
+    poc_flux = ifelse(poc_flux == 0, NA, poc_flux),
+    poc_flux = (poc_flux * 1000) / 365.25,  # Convert gC m⁻² y⁻¹ to mgC m⁻² d⁻¹
+    source = "Schlitzer 2000"
+  ) %>%
+  select(lon, lat, depth, poc_flux, source) # Reorganize the final columns
+
+# Plot to check
+ggplot(df_sch_2000) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1)
+```
+
+## Bind datasets and save
+
+```{r bind_and_save}
+# Bind all datasets
+df_poc_flux <- bind_rows(
+    df_wang_2023,
+    df_now_2022,
+    df_sch_2000
+  ) 
+
+# Save as .csv
+write_csv(df_poc_flux, file = "data/00.df_poc_flux.csv")
+```
