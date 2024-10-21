@@ -30,6 +30,8 @@ df_poc_flux <- read_csv("data/00.df_poc_flux.csv", show_col_types = FALSE)
 ```{r plot_intensity}
 #| fig-column: body-outset
 #| out-width: 100%
+#| fig-height: 5
+#| fig-width: 5
 
 ggplot(df_poc_flux) +
   geom_density(aes(x = poc_flux, colour = source)) +
@@ -39,7 +41,7 @@ ggplot(df_poc_flux) +
   ) +
   theme_classic() +
   facet_wrap(
-    ~depth, ncol = 2, scales = "free", 
+    ~depth, ncol = 1, scales = "free", 
     labeller = labeller(depth = function(x) paste0(x, " m"))
   ) + 
   theme(
@@ -57,8 +59,8 @@ ggplot(df_poc_flux) +
 #| out-width: 100%
 
 ggplot(df_poc_flux, aes(x = poc_flux, y = lat, colour = source)) +
-  geom_point(size = 0.3, alpha = 0.1) +
-  geom_smooth(se = FALSE, orientation = "y") +
+  geom_point(size = 0.3, alpha = 0.01) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3) +
     facet_wrap(
     ~depth, scales = "free", 
     labeller = labeller(depth = function(x) paste0(x, " m"))
@@ -68,6 +70,7 @@ ggplot(df_poc_flux, aes(x = poc_flux, y = lat, colour = source)) +
     y = "Latitude", colour = "Source"
   ) +
   theme_classic() + 
+  xlim(0, NA) +
   theme(
     axis.title.x = element_markdown(),
     strip.background = element_blank()
@@ -81,7 +84,7 @@ ggplot(df_poc_flux, aes(x = poc_flux, y = lat, colour = source)) +
 #| out-width: 100%
 
 ggplot(df_poc_flux, aes(x = poc_flux, y = lat, colour = source)) +
-  geom_smooth(se = FALSE, orientation = "y") +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3) +
     facet_wrap(
     ~depth, scales = "free", 
     labeller = labeller(depth = function(x) paste0(x, " m"))
@@ -91,6 +94,7 @@ ggplot(df_poc_flux, aes(x = poc_flux, y = lat, colour = source)) +
     y = "Latitude", colour = "Source"
   ) +
   theme_classic() + 
+  xlim(0, NA) +
   theme(
     axis.title.x = element_markdown(),
     strip.background = element_blank()
