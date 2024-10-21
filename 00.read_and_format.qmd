@@ -78,7 +78,7 @@ ggplot(df_wang_2023) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   coord_quickmap(expand = 0) +
-  facet_wrap(~depth, ncol = 1)
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
 
 ### Nowicki 2022
@@ -132,7 +132,7 @@ ggplot(df_now_2022) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   coord_quickmap(expand = 0) +
-  facet_wrap(~depth, ncol = 1)
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
 
 ### Schlitzer 2000
@@ -152,6 +152,9 @@ nc_data_sch_2000 <- nc_sch_2000 %>%
   )}
 # Close file
 nc_close(nc_sch_2000)
+
+## NB there is a typo in the depth, it should be 100 m, let’s fix it
+nc_data_sch_2000$depth <- 100
 
 # To vector and to single column df
 df_sch_2000 <- nc_data_sch_2000$poc_flux %>% as.vector() %>% as.data.frame() %>% setNames("poc_flux")
@@ -177,7 +180,7 @@ ggplot(df_sch_2000) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   coord_quickmap(expand = 0) +
-  facet_wrap(~depth, ncol = 1)
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
 
 ## Bind datasets and save
