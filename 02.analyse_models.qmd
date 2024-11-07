@@ -1,0 +1,62 @@
+---
+title: "Analyse model outputs."
+author: "Thelma Panaïotis"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+editor: visual
+lightbox: true
+execute:
+  cache: true
+  warning: false
+---
+
+```{r set_up}
+#| output: false
+#| cache: false
+source("utils.R")
+```
+
+## Read data
+
+```{r read}
+load("data/00.mod_flux.Rada")
+
+# Retrieve previously assigned colours
+mod_100_cols <- mod_flux %>% filter(depth == 100) %>% select(model, colour) %>% distinct()
+mod_1000_cols <- mod_flux %>% filter(depth == 1000) %>% select(model, colour) %>% distinct()
+```
+
+## Plot POC flux VS latitude
+
+### 100 m
+
+```{r plot_lat_100}
+#| fig-column: body-outset
+#| out-width: 100%
+
+ggplot(mod_flux %>% filter(depth == 100), aes(x = poc_flux, y = lat, colour = model)) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3) +
+  scale_colour_manual(values = mod_100_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "POC flux at 100 m") +
+  xlim(0, NA) +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+```
+
+### 1000 m
+
+```{r plot_lat_1000}
+#| fig-column: body-outset
+#| out-width: 100%
+
+ggplot(mod_flux %>% filter(depth == 1000), aes(x = poc_flux, y = lat, colour = model)) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3) +
+  scale_colour_manual(values = mod_1000_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "POC flux at 1000 m") +
+  xlim(0, NA) +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+```
