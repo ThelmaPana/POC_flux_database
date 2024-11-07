@@ -269,6 +269,22 @@
       ],
       "Hash": "d7e13f49c19103ece9e58ad2d83a7354"
     },
+    "castr": {
+      "Package": "castr",
+      "Version": "0.1.0",
+      "Source": "GitHub",
+      "RemoteType": "github",
+      "RemoteHost": "api.github.com",
+      "RemoteRepo": "castr",
+      "RemoteUsername": "jiho",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "7c5667b8308b19fbe33e4517c312b9acc12b5ba9",
+      "Requirements": [
+        "R",
+        "stats"
+      ],
+      "Hash": "2e58f1073ff1da35710e082e6e3a61d9"
+    },
     "cellranger": {
       "Package": "cellranger",
       "Version": "1.1.0",
@@ -835,6 +851,21 @@
         "methods"
       ],
       "Hash": "4e993b65c2c3ffbffce7bb3e2c6f832b"
+    },
+    "khroma": {
+      "Package": "khroma",
+      "Version": "1.14.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "grid",
+        "stats",
+        "utils"
+      ],
+      "Hash": "be72267897f910b1f0fb2bcc9e35823d"
     },
     "knitr": {
       "Package": "knitr",
