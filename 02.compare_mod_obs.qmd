@@ -1,0 +1,89 @@
+---
+title: "Compare POC flux values from models and from observations"
+author: "Thelma Panaïotis"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+editor: visual
+lightbox: true
+execute:
+  cache: true
+  warning: false
+---
+
+```{r set_up}
+#| output: false
+#| cache: false
+source("utils.R")
+```
+
+## Read data
+
+```{r read}
+load("data/00.mod_flux.Rada")
+load("data/01.obs_flux_targ.Rdata")
+
+# Retrieve previously assigned colours
+mod_100_cols <- mod_flux %>% filter(depth == 100) %>% select(model, colour) %>% distinct()
+mod_1000_cols <- mod_flux %>% filter(depth == 1000) %>% select(model, colour) %>% distinct()
+```
+
+## Assemble model and observation data
+
+First, we need to round observation coordinates to match those of models (1° resolution).  Then we can plot model VS  observations both at 100 and 1000 m.
+
+### 100 m
+
+```{r comp_100}
+#| fig-column: body-outset
+#| out-width: 100%
+#| fig-height: 4
+
+comp_100 <- obs_flux_targ %>% 
+  filter(target_depth == 100) %>% 
+  # Round lon and lat to match models
+  mutate(
+    lon = roundp(lon, f = floor, precision = 1) + 0.5, # floor to lower bound and add 0.5
+    lat = roundp(lat, f = floor, precision = 1) + 0.5
+  ) %>% 
+  left_join(mod_flux %>% filter(depth == 100) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
+
+ggplot() +
+  geom_histogram(data = comp_100, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 10) +
+  geom_density(data = comp_100, aes(x = poc_flux_obs), colour = "grey80") +
+  stat_density(data = comp_100, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
+  scale_x_continuous(limits = c(0, 500), expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
+  scale_colour_manual(values = mod_100_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "POC flux at 100 m") +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+```
+
+### 1000 m
+
+```{r comp_1000}
+#| fig-column: body-outset
+#| out-width: 100%
+#| fig-height: 3
+
+comp_1000 <- obs_flux_targ %>% 
+  filter(target_depth == 1000) %>% 
+  # Round lon and lat to match models
+  mutate(
+    lon = roundp(lon, f = floor, precision = 1) + 0.5, # floor to lower bound and add 0.5
+    lat = roundp(lat, f = floor, precision = 1) + 0.5
+  ) %>% 
+  left_join(mod_flux %>% filter(depth == 1000) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
+
+ggplot() +
+  geom_histogram(data = comp_1000, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 2) +
+  geom_density(data = comp_1000, aes(x = poc_flux_obs), colour = "grey80") +
+  stat_density(data = comp_1000, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
+  scale_x_continuous(limits = c(0, 100), expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
+  scale_colour_manual(values = mod_1000_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "POC flux at 1000 m") +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+```
