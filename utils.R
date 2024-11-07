@@ -4,6 +4,8 @@ library(R.matlab)
 library(ggtext)
 library(ncdf4)
 library(purrr)
+library(khroma)
+library(castr)
 
 # ggplot theme
 theme_set(theme_minimal())
