@@ -10,6 +10,10 @@ For data. Directory `raw` contains raw data inputs.
 
 ### Scripts
 
--   `00.read_and_format`: Read datasets and process then to have a common format.
+-   `00.read_and_format_model_outputs`: Read and process POC flux model outputs from Doney at al., 2024
 
--   `01.plot_poc_flux`: Generate plots of POC fluxes.
+-   `01.read_and_format_obs`: Read and process POC flux observations.
+
+-   `02.analyse models`: Analyse and plot model outputs.
+
+-   `03.compare_mod_obs`: Compare POC fluxes from models and from observations.
