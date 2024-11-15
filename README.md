@@ -10,7 +10,7 @@ For data. Directory `raw` contains raw data inputs.
 
 ### Scripts
 
--   `00.read_and_format_model_outputs`: Read and process POC flux model outputs from Doney at al., 2024
+-   `00.read_and_format_model_outputs`: Read and process POC flux model outputs.
 
 -   `01.read_and_format_obs`: Read and process POC flux observations.
 
