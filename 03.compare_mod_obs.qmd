@@ -22,7 +22,7 @@ source("utils.R")
 ## Read data
 
 ```{r read}
-load("data/00.mod_flux.Rada")
+load("data/00.mod_flux.Rdata")
 load("data/01.obs_flux_targ.Rdata")
 
 # Retrieve previously assigned colours
@@ -43,10 +43,10 @@ First, we need to round observation coordinates to match those of models (1° re
 
 comp_100 <- obs_flux_targ %>% 
   filter(target_depth == 100) %>% 
-  # Round lon and lat to match models
+  # Round lon and lat to match models (2° resolution on odd grid)
   mutate(
-    lon = roundp(lon, f = floor, precision = 1) + 0.5, # floor to lower bound and add 0.5
-    lat = roundp(lat, f = floor, precision = 1) + 0.5
+    lon = roundp(lon, f = floor, precision = 2) + 1,
+    lat = roundp(lat, f = floor, precision = 2) + 1
   ) %>% 
   left_join(mod_flux %>% filter(depth == 100) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
 
@@ -70,10 +70,10 @@ ggplot() +
 
 comp_1000 <- obs_flux_targ %>% 
   filter(target_depth == 1000) %>% 
-  # Round lon and lat to match models
+  # Round lon and lat to match models (2° resolution on odd grid)
   mutate(
-    lon = roundp(lon, f = floor, precision = 1) + 0.5, # floor to lower bound and add 0.5
-    lat = roundp(lat, f = floor, precision = 1) + 0.5
+    lon = roundp(lon, f = floor, precision = 2) + 1,
+    lat = roundp(lat, f = floor, precision = 2) + 1
   ) %>% 
   left_join(mod_flux %>% filter(depth == 1000) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
 

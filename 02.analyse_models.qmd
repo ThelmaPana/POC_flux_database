@@ -22,7 +22,7 @@ source("utils.R")
 ## Read data
 
 ```{r read}
-load("data/00.mod_flux.Rada")
+load("data/00.mod_flux.Rdata")
 
 # Retrieve previously assigned colours
 mod_100_cols <- mod_flux %>% filter(depth == 100) %>% select(model, colour) %>% distinct()
