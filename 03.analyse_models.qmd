@@ -22,11 +22,15 @@ source("utils.R")
 ## Read data
 
 ```{r read}
-load("data/00.mod_flux.Rdata")
+load("data/00.g_obs_flux.Rdata")
+load("data/01.mod_flux.Rdata")
 
-# Retrieve previously assigned colours
-mod_100_cols <- mod_flux %>% filter(depth == 100) %>% select(model, colour) %>% distinct()
-mod_1000_cols <- mod_flux %>% filter(depth == 1000) %>% select(model, colour) %>% distinct()
+# Flag obs-based products and reccap2 products + retrieve colours
+g_obs_flux <- g_obs_flux %>% mutate(type = "Glob. obs.")
+g_obs_cols <- g_obs_flux %>% select(model, colour) %>% distinct()
+
+mod_flux <- mod_flux %>% mutate(type = "RECCAP2")
+mod_cols <- mod_flux %>% select(model, colour) %>% distinct()
 ```
 
 ## Plot POC flux VS latitude
@@ -36,14 +40,32 @@ mod_1000_cols <- mod_flux %>% filter(depth == 1000) %>% select(model, colour) %>
 ```{r plot_lat_100}
 #| fig-column: body-outset
 #| out-width: 100%
-
-ggplot(mod_flux %>% filter(depth == 100), aes(x = poc_flux, y = lat, colour = model)) +
-  geom_smooth(se = FALSE, orientation = "y", span = 0.3) +
-  scale_colour_manual(values = mod_100_cols$colour) +
-  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "POC flux at 100 m") +
+# Global obs based
+p1_100 <- ggplot(
+    g_obs_flux %>% filter(depth == 100), 
+    aes(x = poc_flux, y = lat, colour = model)
+  ) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
+  scale_colour_manual(values = g_obs_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "Glob. obs.") +
   xlim(0, NA) +
   theme_classic() +
   theme(axis.title.x = element_markdown())
+
+# RECCAP2
+p2_100 <- ggplot(
+    mod_flux %>% filter(depth == 100), 
+    aes(x = poc_flux, y = lat, colour = model)
+  ) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
+  scale_colour_manual(values = mod_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "RECCAP2") +
+  xlim(0, NA) +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+
+# Assemble
+p1_100 + p2_100 + plot_annotation(title = "POC flux at 100 m")
 ```
 
 ### 1000 m
@@ -51,12 +73,30 @@ ggplot(mod_flux %>% filter(depth == 100), aes(x = poc_flux, y = lat, colour = mo
 ```{r plot_lat_1000}
 #| fig-column: body-outset
 #| out-width: 100%
-
-ggplot(mod_flux %>% filter(depth == 1000), aes(x = poc_flux, y = lat, colour = model)) +
-  geom_smooth(se = FALSE, orientation = "y", span = 0.3) +
-  scale_colour_manual(values = mod_1000_cols$colour) +
-  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "POC flux at 1000 m") +
+# Global obs based
+p1_1000 <- ggplot(
+    g_obs_flux %>% filter(depth == 1000), 
+    aes(x = poc_flux, y = lat, colour = model)
+  ) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
+  scale_colour_manual(values = g_obs_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "Glob. obs.") +
   xlim(0, NA) +
   theme_classic() +
   theme(axis.title.x = element_markdown())
+
+# RECCAP2
+p2_1000 <- ggplot(
+    mod_flux %>% filter(depth == 1000), 
+    aes(x = poc_flux, y = lat, colour = model)
+  ) +
+  geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
+  scale_colour_manual(values = mod_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "RECCAP2") +
+  xlim(0, NA) +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+
+# Assemble
+p1_1000 + p2_1000 + plot_annotation(title = "POC flux at 1000 m")
 ```

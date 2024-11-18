@@ -1070,6 +1070,25 @@
       ],
       "Hash": "ac364dee7ff8277fb4144fcc1e26302f"
     },
+    "patchwork": {
+      "Package": "patchwork",
+      "Version": "1.3.0",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "cli",
+        "farver",
+        "ggplot2",
+        "grDevices",
+        "graphics",
+        "grid",
+        "gtable",
+        "rlang",
+        "stats",
+        "utils"
+      ],
+      "Hash": "e23fb9ecb1258207bcb763d78d513439"
+    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.9.0",

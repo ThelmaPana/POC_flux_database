@@ -8,6 +8,7 @@ library(purrr)
 library(khroma)
 library(castr)
 library(paletteer)
+library(patchwork)
 
 # ggplot theme
 theme_set(theme_minimal())

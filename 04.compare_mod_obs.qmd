@@ -22,12 +22,20 @@ source("utils.R")
 ## Read data
 
 ```{r read}
-load("data/00.mod_flux.Rdata")
-load("data/01.obs_flux_targ.Rdata")
+# Model outputs
+load("data/00.g_obs_flux.Rdata")
+load("data/01.mod_flux.Rdata")
 
-# Retrieve previously assigned colours
-mod_100_cols <- mod_flux %>% filter(depth == 100) %>% select(model, colour) %>% distinct()
-mod_1000_cols <- mod_flux %>% filter(depth == 1000) %>% select(model, colour) %>% distinct()
+# Flag obs-based products and reccap2 products + retrieve colours
+g_obs_flux <- g_obs_flux %>% mutate(type = "Glob. obs.")
+g_obs_cols <- g_obs_flux %>% select(model, colour) %>% distinct()
+
+mod_flux <- mod_flux %>% mutate(type = "RECCAP2")
+mod_cols <- mod_flux %>% select(model, colour) %>% distinct()
+
+
+# Observations
+load("data/02.obs_flux_targ.Rdata")
 ```
 
 ## Assemble model and observation data
@@ -39,9 +47,30 @@ First, we need to round observation coordinates to match those of models (1° re
 ```{r comp_100}
 #| fig-column: body-outset
 #| out-width: 100%
-#| fig-height: 4
+#| fig-height: 8
 
-comp_100 <- obs_flux_targ %>% 
+# Global obs based
+comp_100_g_obs <- obs_flux_targ %>% 
+  filter(target_depth == 100) %>% 
+  # Round lon and lat to match models (2° resolution on odd grid)
+  mutate(
+    lon = roundp(lon, f = floor, precision = 2) + 1,
+    lat = roundp(lat, f = floor, precision = 2) + 1
+  ) %>% 
+  left_join(g_obs_flux %>% filter(depth == 100) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
+
+p1_100 <- ggplot() +
+  geom_histogram(data = comp_100_g_obs, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 10) +
+  geom_density(data = comp_100_g_obs, aes(x = poc_flux_obs), colour = "grey80") +
+  stat_density(data = comp_100_g_obs, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
+  scale_x_continuous(limits = c(0, 500), expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
+  scale_colour_manual(values = g_obs_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "Glob. obs.") +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+
+# RECCAP2
+comp_100_mod <- obs_flux_targ %>% 
   filter(target_depth == 100) %>% 
   # Round lon and lat to match models (2° resolution on odd grid)
   mutate(
@@ -50,15 +79,17 @@ comp_100 <- obs_flux_targ %>%
   ) %>% 
   left_join(mod_flux %>% filter(depth == 100) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
 
-ggplot() +
-  geom_histogram(data = comp_100, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 10) +
-  geom_density(data = comp_100, aes(x = poc_flux_obs), colour = "grey80") +
-  stat_density(data = comp_100, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
+p2_100 <- ggplot() +
+  geom_histogram(data = comp_100_mod, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 10) +
+  geom_density(data = comp_100_mod, aes(x = poc_flux_obs), colour = "grey80") +
+  stat_density(data = comp_100_mod, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
   scale_x_continuous(limits = c(0, 500), expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
-  scale_colour_manual(values = mod_100_cols$colour) +
-  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "POC flux at 100 m") +
+  scale_colour_manual(values = mod_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "RECCAP2") +
   theme_classic() +
   theme(axis.title.x = element_markdown())
+
+p1_100 / p2_100 + plot_annotation(title = "POC flux at 100 m")
 ```
 
 ### 1000 m
@@ -66,9 +97,30 @@ ggplot() +
 ```{r comp_1000}
 #| fig-column: body-outset
 #| out-width: 100%
-#| fig-height: 3
+#| fig-height: 6
 
-comp_1000 <- obs_flux_targ %>% 
+# Global obs based
+comp_1000_g_obs <- obs_flux_targ %>% 
+  filter(target_depth == 1000) %>% 
+  # Round lon and lat to match models (2° resolution on odd grid)
+  mutate(
+    lon = roundp(lon, f = floor, precision = 2) + 1,
+    lat = roundp(lat, f = floor, precision = 2) + 1
+  ) %>% 
+  left_join(g_obs_flux %>% filter(depth == 1000) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
+
+p1_1000 <- ggplot() +
+  geom_histogram(data = comp_1000_g_obs, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 2) +
+  geom_density(data = comp_1000_g_obs, aes(x = poc_flux_obs), colour = "grey80") +
+  stat_density(data = comp_1000_g_obs, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
+  scale_x_continuous(limits = c(0, 100), expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
+  scale_colour_manual(values = g_obs_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "Glob. obs.") +
+  theme_classic() +
+  theme(axis.title.x = element_markdown())
+
+# RECCAP2
+comp_1000_mod <- obs_flux_targ %>% 
   filter(target_depth == 1000) %>% 
   # Round lon and lat to match models (2° resolution on odd grid)
   mutate(
@@ -77,13 +129,15 @@ comp_1000 <- obs_flux_targ %>%
   ) %>% 
   left_join(mod_flux %>% filter(depth == 1000) %>% select(-depth), by = join_by(lon, lat), relationship = "many-to-many") # allow multiple models to join with observation
 
-ggplot() +
-  geom_histogram(data = comp_1000, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 2) +
-  geom_density(data = comp_1000, aes(x = poc_flux_obs), colour = "grey80") +
-  stat_density(data = comp_1000, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
+p2_1000 <- ggplot() +
+  geom_histogram(data = comp_1000_mod, aes(x = poc_flux_obs, y = after_stat(density)), fill = "grey80", colour = "white", binwidth = 2) +
+  geom_density(data = comp_1000_mod, aes(x = poc_flux_obs), colour = "grey80") +
+  stat_density(data = comp_1000_mod, aes(x = poc_flux, colour = model), adjust = 2, geom = "line", position = "identity") +
   scale_x_continuous(limits = c(0, 100), expand = c(0,0)) + scale_y_continuous(expand = c(0,0)) +
-  scale_colour_manual(values = mod_1000_cols$colour) +
-  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "POC flux at 1000 m") +
+  scale_colour_manual(values = mod_cols$colour) +
+  labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Density", colour = "Model", title = "RECCAP2") +
   theme_classic() +
   theme(axis.title.x = element_markdown())
+
+p1_1000 / p2_1000 + plot_annotation(title = "POC flux at 1000 m")
 ```
