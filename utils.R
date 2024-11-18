@@ -7,6 +7,7 @@ library(ncdf4)
 library(purrr)
 library(khroma)
 library(castr)
+library(paletteer)
 
 # ggplot theme
 theme_set(theme_minimal())

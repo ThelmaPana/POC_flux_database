@@ -1,5 +1,5 @@
 ---
-title: "Read and format POC flux from models"
+title: "Read and format POC flux from observation-based data listed in Doney et al., 2024"
 author: "Thelma Panaïotis"
 format:
   html:
@@ -27,7 +27,7 @@ source("utils.R")
 #| fig-column: body-outset
 #| out-width: 100%
 # Read matrix of export data
-mat_exp <- readMat("data/raw/Cexp_CAFE_kl24h.mat")$EXP
+mat_wang <- readMat("data/raw/Cexp_CAFE_kl24h.mat")$EXP
 # Define target fields and corresponding depths
 targets <- c("POC100", "POC1000")
 depths <- c("POC100" = 100, "POC1000" = 1000)
@@ -36,11 +36,11 @@ lon_lat <- read_excel("data/raw/41586_2023_6772_MOESM2_ESM.xlsx", col_types = c(
 lat_values <- lon_lat %>% distinct(lat) %>% pull()
 lon_values <- lon_lat %>% distinct(lon) %>% pull()
 
-# Function to process each target field
-process_target <- function(targ) {
+# Process each target field
+df_wang_2023 <- map_dfr(targets, function(targ) {
   
   # Extract the relevant matrix for the target
-  d <- mat_exp[,,1][[targ]]
+  d <- mat_wang[,,1][[targ]]
   
   # Convert matrix to dataframe with lat and lon as rownames and colnames
   df <- as.data.frame(d) %>%
@@ -57,22 +57,24 @@ process_target <- function(targ) {
       
       # Assign depth and apply the flux conversion
       depth = depths[targ],
-      poc_flux = ifelse(poc_flux == 0, NA, poc_flux),
-      poc_flux = poc_flux / 365.25 * 12  # Convert POC flux from mmol m⁻² y⁻¹ to mg C m⁻² d⁻¹
+      poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
+      poc_flux = poc_flux / 365.25 * 12,  # Convert POC flux from mmol m⁻² y⁻¹ to mg C m⁻² d⁻¹
+      
+      # Add model name
+      model = "Wang 2023"
     )
   
   return(df)
-}
-# Apply the function to all targets and bind rows into a single dataframe and add model
-df_wang_2023 <- map_dfr(targets, process_target) %>% 
-  mutate(model = "Wang 2023") %>% 
-  select(lon, lat, depth, poc_flux, model)
+}) %>% 
+  select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
 # Plot to check
 ggplot(df_wang_2023) +
   geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  ggtitle("Wang 2023") +
   coord_quickmap(expand = 0) +
   facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
@@ -104,7 +106,7 @@ df_now_2022 <- df_now_2022 %>%
   as_tibble() %>% 
   mutate(
     lon = ifelse(lon > 180, lon - 360, lon), # Center map on 0 longitude
-    poc_flux = ifelse(poc_flux == 0, NA, poc_flux),
+    poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
     poc_flux = poc_flux / 365.25 * 12,       # Convert mmol m⁻² y⁻¹ to mgC m⁻² d⁻¹
     model = "Nowicki 2022"
   ) %>%
@@ -116,6 +118,7 @@ df_now_2022 <- df_now_2022 %>%
     )
   ) %>%
   select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
 # Plot to check
 ggplot(df_now_2022) +
   geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
@@ -154,11 +157,12 @@ df_sch_2000$depth <- rep(nc_data_sch_2000$depth, each = length(nc_data_sch_2000$
 df_sch_2000 <- df_sch_2000 %>% 
   as_tibble() %>% 
   mutate(
-    poc_flux = ifelse(poc_flux == 0, NA, poc_flux),
+    poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
     poc_flux = (poc_flux * 1000) / 365.25,  # Convert gC m⁻² y⁻¹ to mgC m⁻² d⁻¹
     model = "Schlitzer 2000"
   ) %>%
   select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
 # Plot to check
 ggplot(df_sch_2000) +
   geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
@@ -169,20 +173,147 @@ ggplot(df_sch_2000) +
   facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
 
+### Siegel 2014
+
+Data from Siegel 2014, Henson 2012, Laws 2000, Laws 2011 and Dunne 2014 are in the same mat file, but Siegel 2014 has a slightly different coordinates grid.
+
+```{r siegel_2014}
+mat_calipso <- readMat("data/raw/export4CALIPSO.mat")
+
+# Get lon and lat values for Siegel 2014
+lon_values <- mat_calipso$lon[1,]
+lat_values <- mat_calipso$lat[1,]
+
+# Get matrix
+mat_sieg <- mat_calipso$Siegel
+
+# Convert to dataframe
+df_sieg_2014 <- as.data.frame(mat_sieg) %>%
+  rownames_to_column(var = "lat") %>%
+  setNames(c("lat", lon_values)) %>%
+  pivot_longer(cols = -lat, names_to = "lon", values_to = "poc_flux") %>%
+  mutate(
+    # Convert lat and lon to numeric
+    lat = as.numeric(lat_values[as.numeric(lat)]),
+    lon = as.numeric(lon),
+    
+    # Recenter longitude over the Atlantic Ocean
+    lon = ifelse(lon > 180, lon - 360, lon),
+    
+    # Assign depth and apply the flux conversion
+    depth = 100,
+    poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
+    poc_flux = poc_flux / 365.25,  # Convert POC flux from mg C m⁻² y⁻¹ to mg C m⁻² d⁻¹
+    
+    # Add model name
+    model = "Siegel"
+  ) %>% 
+  select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
+# Plot map
+ggplot(df_sieg_2014) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  ggtitle("Siegel 2014") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
+
+```
+
+### Henson 2012, Laws 2000, Laws 2011, Dunne 2014
+
+```{r others}
+# List names of models and target names in the mat file
+calipso_models <- tribble(
+  ~target, ~model,
+  "EPCDn", "Dunne 2014",
+  "EPCHn", "Henson 2012",
+  "EPCLC", "Laws 2000",
+  "EPCLF", "Laws 2011",
+)
+
+# Get lon and lat values
+lon_values <- mat_calipso$lonE[1,]
+lat_values <- mat_calipso$latE[,1] # lat grid is not regular!!!
+
+# Apply an anonymous function to all targets and bind rows into a single dataframe
+df_others <- map_dfr(calipso_models$target, function(targ) {
+  
+  # Extract the relevant matrix for the target
+  d <- mat_calipso[[targ]]
+  
+  # Convert matrix to dataframe with lat and lon as rownames and colnames
+  df <- as.data.frame(d) %>%
+    rownames_to_column(var = "lat") %>%
+    setNames(c("lat", lon_values)) %>%
+    pivot_longer(
+      cols = -lat, 
+      names_to = "lon", 
+      values_to = "poc_flux"
+    ) %>%
+    mutate(
+      # Convert lat and lon to numeric
+      lat = as.numeric(lat_values[as.numeric(lat)]),
+      lon = as.numeric(lon),
+      
+      # Recenter longitude over the Atlantic Ocean
+      lon = ifelse(lon < -180, lon + 360, lon),
+      
+      # Assign depth and apply the flux conversion
+      depth = 100,
+      poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA 
+      poc_flux = poc_flux / 365.25,  # Convert POC flux from mg C m⁻² y⁻¹ to mg C m⁻² d⁻¹
+      
+      # Add model name based on target name
+      model = calipso_models %>% filter(target == targ) %>% pull(model)
+    ) %>%
+    select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+  
+  # Regularize the lat grid
+  df <- df %>%
+    mutate(lat = roundp(lat, precision = 1, f = floor) + 1) %>%
+    group_by(model, lon, lat, depth) %>%
+    summarise(
+      poc_flux = mean(poc_flux, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Return processed dataframe
+  return(df)
+})
+
+ggplot(df_others) +
+  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA, trans = "log1p") +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  facet_wrap(~model) +
+  coord_quickmap(expand = 0)
+
+```
+
+::: callout-warning
+## TODO
+
+Are these data really mg C m⁻² y⁻¹? It looks like it’s 1  order of magnitude too high!
+:::
+
 ## Assemble datasets on a common grid
 
 The target coordinates grid is:
 
--   longitude:  -179° to 179° by 2°
+-   longitude: -179° to 179° by 2°
 
 -   latitude: -89° to 89° by 2°
 
 ```{r assemble}
 # List dataframes to process
-df_list <- list(df_wang_2023, df_now_2022, df_sch_2000)
+df_list <- list(df_wang_2023, df_now_2022, df_sch_2000, df_sieg_2014, df_others)
 
 # Let’s purrr!
-mod_flux <- map_dfr(df_list, ~ .x %>%
+g_obs_flux <- map_dfr(df_list, ~ .x %>%
   mutate(
     # round lon and lat
     lon = roundp(lon, precision = 2, f = floor) + 1,
@@ -196,22 +327,25 @@ mod_flux <- map_dfr(df_list, ~ .x %>%
 Let’s also assign a colour for each model.
 
 ```{r colours}
-# Assign colours to models
-colours <- tribble(
-  ~model, ~colour,
-  "Wang 2023",      "#66c2a5",
-  "Nowicki 2022",   "#fc8d62",
-  "Schlitzer 2000", "#8da0cb"
-)
-mod_flux <- mod_flux %>% 
+# 8 models at 100 m -> 8 colours
+# 2 models at 100 m -> 2 colours
+## Assign colours to models
+colours <- g_obs_flux %>% 
+  select(model) %>% 
+  distinct() %>% 
+  mutate(
+    colour = paletteer_d("miscpalettes::pastel", n = n())
+  )
+g_obs_flux <- g_obs_flux %>% 
   left_join(colours, by = join_by(model)) %>% 
   arrange(model) %>% 
   mutate(model = fct_inorder(model)) # model as factor
+
 ```
 
 ## Bind datasets and save
 
 ```{r bind_and_save}
 # Save
-save(mod_flux, file = "data/00.mod_flux.Rdata")
+save(g_obs_flux, file = "data/00.g_obs_flux.Rdata")
 ```

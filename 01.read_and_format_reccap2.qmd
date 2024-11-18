@@ -1,0 +1,184 @@
+---
+title: "Read and format POC flux from RECCAP2 models."
+author: "Thelma Panaïotis"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+editor: visual
+lightbox: true
+execute:
+  cache: true
+  warning: false
+---
+
+```{r set_up}
+#| output: false
+#| cache: false
+source("utils.R")
+```
+
+## Prepare model lists
+
+The dataset contains POC flux data at 100 and 1000 m for various models. We first need to prepare a list of these models, as well as longitudes data for each.
+
+```{r list_models}
+# List models at 100 m and generate associated longitude values
+mod_name_100 <- tibble(
+  model = c("MPIOM-HAMMOC", "Nor_ESM-OC1.2", "MRI-ESM2-0", "PlankTOM12", "MOM6-Prenceton", "ORCA1-LIM3-PISCES", "CCSM-WHOI", "CNRM-ESM2", "FESOM−REcoM_LR", "EC-Earth3", "CESM-ETHZ", "SIMPLE-TRIM", "ECCO-Darwin"),
+) %>% 
+  mutate(lon_values = ifelse(
+    model == "CCSM-WHOI",
+    list(seq(-179.5, 179.5)), # "CCSM-WHOI" has [-180, 180] longitudes
+    list(seq(0.5, 359.5)) # other models have [0, 360] longitudes
+  )) %>% 
+  arrange(model) # sort alphabetically
+ 
+# List models at 100 m and generate associated longitude values
+mod_name_1000 <- tibble(
+  model = c("MPIOM-HAMMOC", "Nor_ESM-OC1.2", "MRI-ESM2-0", "CCSM-WHOI", "FESOM−REcoM_LR", "CESM-ETHZ", "SIMPLE-TRIM", "ECCO-Darwin"),
+) %>% 
+  mutate(lon_values = ifelse(
+    model == "CCSM-WHOI",
+    list(seq(-179.5, 179.5)), # "CCSM-WHOI" has [-180, 180] longitudes
+    list(seq(0.5, 359.5)) # other models have [0, 360] longitudes
+  )) %>% 
+  arrange(model) # sort alphabetically
+# Generate latitude values
+lat_values <- seq(-89.5, 89.5)
+```
+
+## Read datasets
+
+Now we can read the mat files and associate data with each of these models.
+
+```{r read_mat}
+# Read MAT files for fluxes at 100 m and 1000 m
+arr_100 <- readMat("data/raw/all_models_POC_flux_100.mat")$all.models.POC.flux.100 # 100 m
+arr_1000 <- readMat("data/raw/all_models_POC_flux_1000.mat")$all.models.POC.flux.1000 # 1000 m
+# Read fluxes at 100 m: use pmap to iterate over each row in mod_name_100 and generate the final dataframe
+mod_flux_100 <- mod_name_100 %>%
+  mutate(data = pmap(list(model = model, lon_values = lon_values, index = row_number()), function(model, lon_values, index) {
+    # Get matrix for each model and transpose it
+    mat <- t(arr_100[, , index])
+    
+    # Convert the matrix to a tibble, add lon, lat and convert POC flux
+    as_tibble(as.vector(mat), .name_repair = "minimal") %>%
+      mutate(
+        lon = rep(lon_values, length.out = n()), # use provided longitude values
+        lat = rep(lat_values, each = length(lon_values)), # lat values are always the same
+        lon = ifelse(lon > 180, lon - 360, lon) # fix longitude values > 180
+      ) %>%
+      rename(poc_flux = value) %>% 
+      mutate(poc_flux = poc_flux * 1000 * 12 / 365.25)  # Convert POC flux from mol C m⁻² y⁻¹ to mg C m⁻² d⁻¹)
+  })) %>%
+  select(-lon_values) %>%
+  unnest(cols = c(data), names_repair = "universal") %>% 
+  mutate(depth = 100) %>% 
+  select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
+
+# Read fluxes at 1000 m
+mod_flux_1000 <- mod_name_1000 %>%
+  mutate(data = pmap(list(model = model, lon_values = lon_values, index = row_number()), function(model, lon_values, index) {
+    # Get matrix for each model and transpose it
+    mat <- t(arr_1000[, , index])
+    
+    # Convert the matrix to a tibble, add lon, lat and convert POC flux
+    as_tibble(as.vector(mat), .name_repair = "minimal") %>%
+      mutate(
+        lon = rep(lon_values, length.out = n()), # use provided longitude values
+        lat = rep(lat_values, each = length(lon_values)), # lat values are always the same
+        lon = ifelse(lon > 180, lon - 360, lon) # fix longitude values > 180
+      ) %>%
+      rename(poc_flux = value) %>% 
+      mutate(poc_flux = poc_flux * 1000 * 12 / 365.25)  # Convert POC flux from mol C m⁻² y⁻¹ to mg C m⁻² d⁻¹)
+  })) %>%
+  select(-lon_values) %>%
+  unnest(cols = c(data), names_repair = "universal") %>% 
+  mutate(depth = 1000) %>% 
+  select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+```
+
+## Plot datasets
+
+Let’s plot some maps to make sure everything is in order.
+
+### 100 m
+
+```{r map_100}
+#| fig-column: body-outset
+#| out-width: 100%
+ggplot(mod_flux_100) +
+  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux<br>(mg C m<sup>-2</sup> d<sup>-1</sup>)", title = "POC flux 100 m") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~model, scales = "free", ncol = 4) +
+  theme(
+    legend.title = element_markdown(),
+    text = element_text(size = 10)
+  )
+```
+
+### 1000 m
+
+```{r map_1000}
+#| fig-column: body-outset
+#| out-width: 100%
+ggplot(mod_flux_1000) +
+  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux<br>(mg C m<sup>-2</sup> d<sup>-1</sup>)", title = "POC flux 1000 m") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~model, scales = "free", ncol = 4) +
+  theme(
+    legend.title = element_markdown(),
+    text = element_text(size = 10)
+  )
+```
+
+## Assemble datasets on a common grid
+
+The target coordinates grid is:
+
+-   longitude: -179° to 179° by 2°
+
+-   latitude: -89° to 89° by 2°
+
+```{r assemble}
+mod_flux <- mod_flux_100 %>%
+  bind_rows(mod_flux_1000) %>% 
+  mutate(
+    # round lon and lat
+    lon = roundp(lon, precision = 2, f = floor) + 1,
+    lat = roundp(lat, precision = 2, f = floor) + 1
+  ) %>% 
+  group_by(model, lon, lat, depth) %>%
+  summarise(poc_flux = mean(poc_flux, na.rm = TRUE), .groups = "drop") # compute mean POC flux
+```
+
+Let’s also assign a colour for each model.
+
+```{r colours}
+# Generate colours for models at 100 m
+colours <- mod_name_100 %>% 
+  select(-lon_values) %>% 
+  mutate(colour = paletteer_d("ggthemes::Classic_Cyclic", n = n())) # generate colours for models
+
+# And add to table with POC fluxes
+mod_flux <- mod_flux %>% 
+  left_join(colours, by = join_by(model)) %>% 
+  arrange(model) %>% 
+  mutate(model = fct_inorder(model)) # model as factor
+```
+
+## Bind datasets and save
+
+```{r bind_and_save}
+# Save
+save(mod_flux, file = "data/01.mod_flux.Rdata")
+```
