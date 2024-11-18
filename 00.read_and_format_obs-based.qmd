@@ -206,7 +206,7 @@ df_sieg_2014 <- as.data.frame(mat_sieg) %>%
     poc_flux = poc_flux / 365.25,  # Convert POC flux from mg C m⁻² y⁻¹ to mg C m⁻² d⁻¹
     
     # Add model name
-    model = "Siegel"
+    model = "Siegel 2014"
   ) %>% 
   select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
 

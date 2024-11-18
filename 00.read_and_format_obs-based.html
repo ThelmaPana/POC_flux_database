@@ -3342,7 +3342,7 @@ font-family: inherit;
 <span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">poc_flux =</span> poc_flux <span class="sc">/</span> <span class="fl">365.25</span>,  <span class="co"># Convert POC flux from mg C m⁻² y⁻¹ to mg C m⁻² d⁻¹</span></span>
 <span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Add model name</span></span>
-<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="st">&quot;Siegel&quot;</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">model =</span> <span class="st">&quot;Siegel 2014&quot;</span></span>
 <span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span> </span>
 <span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(lon, lat, depth, poc_flux, model) <span class="co"># Reorganize the final columns</span></span>
 <span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
@@ -3460,7 +3460,7 @@ TODO
 <h2 class="anchored" data-anchor-id="assemble-datasets-on-a-common-grid">Assemble datasets on a common grid</h2>
 <p>The target coordinates grid is:</p>
 <ul>
-<li><p>longitude:  -179° to 179° by 2°</p></li>
+<li><p>longitude: -179° to 179° by 2°</p></li>
 <li><p>latitude: -89° to 89° by 2°</p></li>
 </ul>
 <div class="cell">
@@ -3475,7 +3475,7 @@ TODO
 <span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">lat =</span> <span class="fu">roundp</span>(lat, <span class="at">precision =</span> <span class="dv">2</span>, <span class="at">f =</span> floor) <span class="sc">+</span> <span class="dv">1</span></span>
 <span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">%&gt;%</span></span>
 <span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(model, lon, lat, depth) <span class="sc">%&gt;%</span></span>
-<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">poc_flux =</span> <span class="fu">mean</span>(poc_flux, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>) <span class="co"># compute mean POC lux</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">poc_flux =</span> <span class="fu">mean</span>(poc_flux, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span>) <span class="co"># compute mean POC flux</span></span>
 <span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Let’s also assign a colour for each model.</p>
@@ -3888,7 +3888,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script>
 </div> <!-- /content -->
-<script>var lightboxQuarto = GLightbox({"descPosition":"bottom","openEffect":"zoom","loop":false,"selector":".lightbox","closeEffect":"zoom"});
+<script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","selector":".lightbox","loop":false,"descPosition":"bottom","openEffect":"zoom"});
 window.onload = () => {
   lightboxQuarto.on('slide_before_load', (data) => {
     const { slideIndex, slideNode, slideConfig, player, trigger } = data;
