@@ -3312,7 +3312,7 @@ font-family: inherit;
 </section>
 <section id="siegel-2014" class="level3">
 <h3 class="anchored" data-anchor-id="siegel-2014">Siegel 2014</h3>
-<p>Data from Siegel 2014, Henson 2012, Laws 2000, Laws 2011 and Dunne 2014 are in the same mat file, but Siegel 2014 has a slightly different coordinates grid. These are already mg C m⁻² y⁻¹, no need to convert.</p>
+<p>Data from Siegel 2014, Henson 2012, Laws 2000, Laws 2011 and Dunne 2014 are in the same mat file, but Siegel 2014 has a slightly different coordinates grid. These are already mg C m⁻² d⁻¹, no need to convert.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>mat_calipso <span class="ot">&lt;-</span> <span class="fu">readMat</span>(<span class="st">&quot;data/raw/export4CALIPSO.mat&quot;</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -3873,7 +3873,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 });
 </script>
 </div> <!-- /content -->
-<script>var lightboxQuarto = GLightbox({"selector":".lightbox","closeEffect":"zoom","loop":false,"descPosition":"bottom","openEffect":"zoom"});
+<script>var lightboxQuarto = GLightbox({"descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox","closeEffect":"zoom"});
 window.onload = () => {
   lightboxQuarto.on('slide_before_load', (data) => {
     const { slideIndex, slideNode, slideConfig, player, trigger } = data;
