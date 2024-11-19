@@ -230,8 +230,8 @@ calipso_models <- tribble(
   ~target, ~model,
   "EPCDn", "Dunne 2014",
   "EPCHn", "Henson 2012",
-  "EPCLC", "Laws 2000",
-  "EPCLF", "Laws 2011",
+  "EPCLC", "Laws 2011",
+  "EPCLF", "Laws 2000",
 )
 
 # Get lon and lat values
