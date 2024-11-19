@@ -175,7 +175,7 @@ ggplot(df_sch_2000) +
 
 ### Siegel 2014
 
-Data from Siegel 2014, Henson 2012, Laws 2000, Laws 2011 and Dunne 2014 are in the same mat file, but Siegel 2014 has a slightly different coordinates grid.
+Data from Siegel 2014, Henson 2012, Laws 2000, Laws 2011 and Dunne 2014 are in the same mat file, but Siegel 2014 has a slightly different coordinates grid. These are already mg C m⁻² y⁻¹, no need to convert.
 
 ```{r siegel_2014}
 mat_calipso <- readMat("data/raw/export4CALIPSO.mat")
@@ -203,7 +203,6 @@ df_sieg_2014 <- as.data.frame(mat_sieg) %>%
     # Assign depth and apply the flux conversion
     depth = 100,
     poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
-    poc_flux = poc_flux / 365.25,  # Convert POC flux from mg C m⁻² y⁻¹ to mg C m⁻² d⁻¹
     
     # Add model name
     model = "Siegel 2014"
@@ -264,7 +263,6 @@ df_others <- map_dfr(calipso_models$target, function(targ) {
       # Assign depth and apply the flux conversion
       depth = 100,
       poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA 
-      poc_flux = poc_flux / 365.25,  # Convert POC flux from mg C m⁻² y⁻¹ to mg C m⁻² d⁻¹
       
       # Add model name based on target name
       model = calipso_models %>% filter(target == targ) %>% pull(model)
@@ -293,12 +291,6 @@ ggplot(df_others) +
   coord_quickmap(expand = 0)
 
 ```
-
-::: callout-warning
-## TODO
-
-Are these data really mg C m⁻² y⁻¹? It looks like it’s 1  order of magnitude too high!
-:::
 
 ## Assemble datasets on a common grid
 
