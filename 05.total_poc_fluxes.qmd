@@ -1,0 +1,374 @@
+---
+title: "Compute integrated POC fluxes at 100 m and 1000 m"
+author: "Thelma Panaïotis"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+editor: visual
+lightbox: true
+execute:
+  cache: true
+  warning: false
+---
+
+```{r set_up}
+#| output: false
+#| cache: false
+source("utils.R")
+```
+
+# Wang 2023
+
+## Read data
+
+Start by reading model output from Wang 2023.
+
+```{r wang_read}
+mat_wang <- readMat("data/raw/Cexp_CAFE_kl24h.mat")$EXP
+# Define target fields and corresponding depths
+targets <- c("POCexp", "POC100", "POC1000")
+depths <- c("POCexp" = 73, "POC100" = 100, "POC1000" = 1000)
+# Read lon and lat values from Wang paper https://static-content.springer.com/esm/art%3A10.1038%2Fs41586-023-06772-4/MediaObjects/41586_2023_6772_MOESM7_ESM.xlsx
+lon_lat <- read_excel("data/raw/41586_2023_6772_MOESM2_ESM.xlsx", col_types = c("numeric", "numeric", "skip"))
+lat_values <- lon_lat %>% distinct(lat) %>% pull()
+lon_values <- lon_lat %>% distinct(lon) %>% pull()
+
+# Process each target field
+df_wang_2023 <- map_dfr(targets, function(targ) {
+  
+  # Extract the relevant matrix for the target
+  d <- mat_wang[,,1][[targ]]
+  
+  # Convert matrix to dataframe with lat and lon as rownames and colnames
+  df <- as.data.frame(d) %>%
+    rownames_to_column(var = "lat") %>%
+    setNames(c("lat", lon_values)) %>%
+    pivot_longer(cols = -lat, names_to = "lon", values_to = "poc_flux") %>%
+    mutate(
+      # Convert lat and lon to numeric
+      lat = as.numeric(lat_values[as.numeric(lat)]),
+      lon = as.numeric(lon),
+      
+      # Recenter longitude over the Atlantic Ocean
+      lon = ifelse(lon > 180, lon - 360, lon),
+      
+      # Assign depth and apply the flux conversion
+      depth = depths[targ],
+      poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
+      poc_flux = poc_flux * 12,  # Convert POC flux from mmol m⁻² y⁻¹ to mg C m⁻² y⁻¹
+      
+      # Add model name
+      model = "Wang 2023"
+    )
+  
+  return(df)
+}) %>% 
+  select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
+# Plot map
+ggplot(df_wang_2023) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(
+    x = "Longitude", y = "Latitude",
+    fill = "POC flux<br>(mg C m<sup>-2</sup> y<sup>-1</sup>)"
+  ) +
+  ggtitle("Wang 2023") +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m"))) +
+  theme(legend.title = element_markdown())
+```
+
+## Compute pixel area
+
+Let’s now compute the area of each pixel, which depends on the latitude. For a 1°×1° pixel, the area is:
+
+$$
+A = 2\pi \times R^{2} \times (\sin(lat_{S}) - \sin(lat_{N})) ÷ 360
+$$
+
+with $lat_{N}$ and $lat_{S}$ the northern and southern latitude borders of the pixel.
+
+Let’s adapt this to the Wang 2023 coordinates grid.
+
+```{r wang_pix}
+# Given lat values are the middle of each pixel, use these to compute northern and southern border of each pixels
+pix_area <- df_wang_2023 %>% 
+  select(lat) %>% # keep only lat
+  distinct() %>%  # keep only unique values
+  arrange(desc(lat)) %>% # arrange by decreasing latitude
+  mutate(
+    lag_lat = lag(lat), # get adjacent (north) pixel
+    diff = lag_lat - lat, # difference between the centers of two adjacent pixels
+    diff = ifelse(is.na(diff), median(diff, na.rm = TRUE), diff) # replace by median value if not computed
+  ) %>% 
+  mutate(
+    lat1 = (lat + (diff / 2)) * pi / 180, # upper border
+    lat2 = (lat - (diff / 2)) * pi / 180, # lower border
+    area_m2 = ((pi/180)*(R)^2 * abs(sin(lat1) - sin(lat2)))*10^6 * 2, # area in m² # *2 at the end because these are 2° pixels in longitude
+    area_km2 = area_m2 / 1e6, # area in km²
+  )
+
+# Plot computed area VS latitude
+ggplot(pix_area) +
+  geom_point(aes(x = area_km2, y = lat))
+# Seems OK!
+```
+
+One degree of latitude is ≈ 111 km, same for longitude around the equator. For a 2° × 2° pixel, we thus expect a surface area of 222 × 222 = 49284 km² around the equator.
+
+## Compute integrated flux
+
+Now let’s multiply the flux in each pixel by the area of the pixel and sum it by layer to obtain total fluxes.
+
+```{r wang_tot}
+# Then we can join pixel area to POC flux and compute POC flux × area
+df_wang_2023 <- df_wang_2023 %>% 
+  left_join(pix_area %>% select(lat, area_m2, area_km2), by = join_by(lat)) %>% 
+  mutate(poc_flux_2 = poc_flux * area_m2)
+
+# Compute total POC flux for each layer
+res_wang_2023 <- df_wang_2023 %>% 
+  group_by(depth) %>% 
+  summarise(
+    tot_poc_flux_mg = sum(poc_flux_2, na.rm = TRUE),
+    tot_poc_flux_pg = tot_poc_flux_mg * 10^(-18) 
+  )
+res_wang_2023
+```
+
+Computed fluxes are:
+
+-   **`r round(res_wang_2023$tot_poc_flux_pg[1], digits = 1)` Pg C y⁻¹ at 73 m**
+
+-   **`r round(res_wang_2023$tot_poc_flux_pg[2], digits = 1)` Pg C y⁻¹ at 100 m**
+
+-   **`r round(res_wang_2023$tot_poc_flux_pg[3], digits = 1)` Pg C y⁻¹ at 1000 m**
+
+In their paper, Wang 2023 give the value of **10.63 Pg C y⁻¹ at 73 m**.
+
+# DeVries and Weber 2022
+
+## Read data
+
+This is the SIMPLE-TRIM model from RECCAP2.
+
+```{r dev_read}
+# Name of model is SIMPLE-TRIM
+
+## Read model output
+arr_100 <- readMat("data/raw/all_models_POC_flux_100.mat")$all.models.POC.flux.100 # 100 m
+arr_1000 <- readMat("data/raw/all_models_POC_flux_1000.mat")$all.models.POC.flux.1000 # 1000 m
+
+lon_values <- seq(0.5, 359.5)
+lat_values <- seq(-89.5, 89.5)
+
+# Convert the matrix to a tibble, add lon, lat and convert POC flux
+# 100 m
+mat <- t(arr_100[, , 12]) # SIMPLE-TRIM is model n°12 in the list at 100 m
+df_100 <- as_tibble(as.vector(mat), .name_repair = "minimal") %>%
+  mutate(
+    lon = rep(lon_values, length.out = n()), # use provided longitude values
+    lat = rep(lat_values, each = length(lon_values)), # lat values are always the same
+    lon = ifelse(lon > 180, lon - 360, lon), # fix longitude values > 180
+    depth = 100
+  ) %>%
+  rename(poc_flux = value) %>% 
+  mutate(poc_flux = poc_flux * 1000 * 12)  # Convert POC flux from mol C m⁻² y⁻¹ to mg C m⁻² y⁻¹)
+
+# 1000 m
+mat <- t(arr_1000[, , 7]) # SIMPLE-TRIM is model n°7 in the list at 1000 m
+df_1000 <- as_tibble(as.vector(mat), .name_repair = "minimal") %>%
+  mutate(
+    lon = rep(lon_values, length.out = n()), # use provided longitude values
+    lat = rep(lat_values, each = length(lon_values)), # lat values are always the same
+    lon = ifelse(lon > 180, lon - 360, lon), # fix longitude values > 180
+    depth = 1000
+  ) %>%
+  rename(poc_flux = value) %>% 
+  mutate(poc_flux = poc_flux * 1000 * 12)  # Convert POC flux from mol C m⁻² y⁻¹ to mg C m⁻² y⁻¹)
+
+# Join together data at 100 and 1000 m
+df_dev_2022 <- bind_rows(df_100, df_1000)
+
+ggplot(df_dev_2022) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(
+    x = "Longitude", y = "Latitude",
+    fill = "POC flux<br>(mg C m<sup>-2</sup> y<sup>-1</sup>)"
+  ) +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m"))) +
+  ggtitle("DeVries and Weber 2022") +
+  theme(legend.title = element_markdown())
+```
+
+## Compute pixel area
+
+Here we have a regular grid of 1°×1°. Max area expected is 111 × 111 = 12321 km².
+
+```{r dev_pix}
+## Compute surface of each pixel
+pix_area <- df_dev_2022 %>% 
+  select(lat) %>% 
+  distinct() %>% 
+  arrange(desc(lat)) %>% 
+  mutate(
+    lat1 = (lat + 0.5) * pi / 180, # upper border
+    lat2 = (lat - 0.5) * pi / 180, # lower border
+    area_m2 = ((pi/180)*(R)^2 * abs(sin(lat1) - sin(lat2)))*10^6 , # area in m²
+    area_km2 = area_m2 / 1e6, # area in km²
+  )
+ggplot(pix_area) + geom_point(aes(x = area_km2, y = lat))
+# OK
+```
+
+## Compute integrated flux
+
+```{r dev_tot}
+## Compute integrated POC flux
+df_dev_2022 <- df_dev_2022 %>% 
+  left_join(pix_area %>% select(lat, area_m2, area_km2), by = join_by(lat)) %>% 
+  mutate(poc_flux_2 = poc_flux * area_m2)
+
+# Group and sum by layer
+res_dev_2022 <- df_dev_2022 %>% 
+  group_by(depth) %>% 
+  summarise(
+    tot_poc_flux_mg = sum(poc_flux_2, na.rm = TRUE),
+    tot_poc_flux_pg = tot_poc_flux_mg * 10^(-18) 
+  )
+res_dev_2022
+```
+
+Computed fluxes are:
+
+-   **`r round(res_dev_2022$tot_poc_flux_pg[1], digits = 1)` Pg C y⁻¹ at 100 m**
+
+-   **`r round(res_dev_2022$tot_poc_flux_pg[2], digits = 1)` Pg C y⁻¹ at 1000 m**
+
+Doney 2024 report the value of **7.3 Pg C y⁻¹ at 100 m.**
+
+# Nowicki 2022
+
+## Read data
+
+```{r now_read}
+## Read model output
+nc_now_2022 <- nc_open("data/raw/biopump_model_output.nc")
+nc_data_now_2022 <- nc_now_2022 %>%
+  {list(
+    lon = ncvar_get(., "LON")[1,,1], 
+    lat = ncvar_get(., "LAT")[,1,1], 
+    depth = ncvar_get(., "DEPTH")[1,1,], 
+    poc_flux = ncvar_get(., "POCflux") # mmolC/m^2/yr
+  )} 
+# Close file
+nc_close(nc_now_2022)
+# To vector and to single column df
+df_now_2022 <- nc_data_now_2022$poc_flux %>% as.vector() %>% as.data.frame() %>% setNames("poc_flux")
+# Add lon, lat and depth
+df_now_2022$lat <- nc_data_now_2022$lat # need to start with lat because of how data is stored
+df_now_2022$lon <- rep(nc_data_now_2022$lon, each = length(nc_data_now_2022$lat))
+df_now_2022$depth <- rep(nc_data_now_2022$depth, each = length(nc_data_now_2022$lon)*length(nc_data_now_2022$lat))
+# Clean and reformat data
+df_now_2022 <- df_now_2022 %>% 
+  as_tibble() %>% 
+  mutate(
+    lon = ifelse(lon > 180, lon - 360, lon), # Center map on 0 longitude
+    poc_flux = na_if(poc_flux, 0),  # Convert 0 to NA ,
+    poc_flux = poc_flux * 12,       # Convert mmol m⁻² y⁻¹ to mgC m⁻² y⁻¹
+    model = "Nowicki 2022"
+  ) %>%
+  filter(between(depth, 90, 100) | between(depth, 900, 1000)) %>%
+  mutate(
+    depth = case_when(
+      depth < 100 ~ 100,
+      depth > 100 ~ 1000
+    )
+  ) %>%
+  select(lon, lat, depth, poc_flux, model) # Reorganize the final columns
+
+# Plot to check
+ggplot(df_now_2022) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA) +
+  labs(
+    x = "Longitude", y = "Latitude",
+    fill = "POC flux<br>(mg C m<sup>-2</sup> y<sup>-1</sup>)"
+  ) +
+  coord_quickmap(expand = 0) +
+  facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m"))) +
+  ggtitle("Nowicki 2022") +
+  theme(legend.title = element_markdown())
+```
+
+## Compute pixel area
+
+Pixel values are not round: use the same method as for Wang 2023. Grid is \~2°×2°, so we expect a maximal area of \~50000 km².
+
+```{r now_pix}
+pix_area <- df_now_2022 %>% 
+  select(lat) %>% 
+  distinct() %>% 
+  arrange(desc(lat)) %>% 
+  mutate(
+    lag_lat = lag(lat),
+    diff = lag_lat - lat,
+    diff = ifelse(is.na(diff), median(diff, na.rm = TRUE), diff)
+  ) %>% 
+  mutate(
+    lat1 = (lat + (diff / 2)) * pi / 180, # upper border
+    lat2 = (lat - (diff / 2)) * pi / 180, # lower border
+    area_m2 = ((pi/180)*(R)^2 * abs(sin(lat1) - sin(lat2)))*10^6 * 2, # area in m² # *2 at the end because these are 2° pixels in longitude
+    area_km2 = area_m2 / 1e6, # area in km²
+  )
+
+# Plot computed area VS latitude
+ggplot(pix_area) +
+  geom_point(aes(x = area_km2, y = lat))
+```
+
+## Compute integrated flux
+
+```{r now_tot}
+## Compute integrated POC flux
+df_now_2022 <- df_now_2022 %>% 
+  left_join(pix_area %>% select(lat, area_m2, area_km2), by = join_by(lat)) %>% 
+  mutate(poc_flux_2 = poc_flux * area_m2)
+
+# Group and sum by layer
+res_now_2022 <- df_now_2022 %>% 
+  group_by(depth) %>% 
+  summarise(
+    tot_poc_flux_mg = sum(poc_flux_2, na.rm = TRUE),
+    tot_poc_flux_pg = tot_poc_flux_mg * 10^(-18) 
+  )
+res_now_2022
+```
+
+Computed fluxes are:
+
+-   **`r round(res_now_2022$tot_poc_flux_pg[1], digits = 1)` Pg C y⁻¹ at 100 m**
+
+-   **`r round(res_now_2022$tot_poc_flux_pg[2], digits = 1)` Pg C y⁻¹ at 1000 m**
+
+Doney 2024 report the value of **6.4 Pg C y⁻¹ at 100 m.**
+
+# Summary of results
+
+| Source | Depth (m) | Computed (Pg C y⁻¹) | Expected (Pg C y⁻¹) |
+|----|----|----|----|
+| Wang 2023 | 73 | `r round(res_wang_2023$tot_poc_flux_pg[1], digits = 1)` | 10.6 |
+| Wang 2023 | 100 | `r round(res_wang_2023$tot_poc_flux_pg[2], digits = 1)` | \- |
+| Wang 2023 | 1000 | `r round(res_wang_2023$tot_poc_flux_pg[3], digits = 1)` | \- |
+| DeVries and Weber 2022 | 100 | `r round(res_dev_2022$tot_poc_flux_pg[1], digits = 1)` | 6.1 |
+| DeVries and Weber 2022 | 1000 | `r round(res_dev_2022$tot_poc_flux_pg[2], digits = 1)` | \- |
+| Nowicki 2022 | 100 | `r round(res_now_2022$tot_poc_flux_pg[1], digits = 1)` | 6.4 |
+| Nowicki 2022 | 1000 | `r round(res_now_2022$tot_poc_flux_pg[2], digits = 1)` | \- |
