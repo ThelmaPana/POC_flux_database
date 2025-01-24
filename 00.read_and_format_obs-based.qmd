@@ -70,8 +70,8 @@ df_wang_2023 <- map_dfr(targets, function(targ) {
 
 # Plot to check
 ggplot(df_wang_2023) +
-  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   ggtitle("Wang 2023") +
@@ -121,8 +121,8 @@ df_now_2022 <- df_now_2022 %>%
 
 # Plot to check
 ggplot(df_now_2022) +
-  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   ggtitle("Nowicki 2022") +
@@ -166,8 +166,8 @@ df_sch_2000 <- df_sch_2000 %>%
 
 # Plot to check
 ggplot(df_sch_2000) +
-  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   ggtitle("Schlitzer 2000") +
@@ -213,8 +213,8 @@ df_sieg_2014 <- as.data.frame(mat_sieg) %>%
 
 # Plot map
 ggplot(df_sieg_2014) +
-  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   ggtitle("Siegel 2014") +
@@ -285,13 +285,12 @@ df_epc <- map_dfr(calipso_models$target, function(targ) {
 })
 
 ggplot(df_epc) +
-  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA, trans = "log1p") +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
   facet_wrap(~model) +
   coord_quickmap(expand = 0)
-
 ```
 
 ## Store together and save
@@ -326,6 +325,32 @@ g_obs_flux <- g_obs_flux %>%
   left_join(colours, by = join_by(model)) %>% 
   arrange(model) %>% 
   mutate(model = fct_inorder(model)) # model as factor
+```
+
+## Remove inland points
+
+Some model have POC flux values for inland pixels. Set these to NA.
+
+```{r rm_inland}
+# Flag inland points
+g_obs_flux <- g_obs_flux %>% 
+  mutate(inland = sp::point.in.polygon(lon, lat, coast$lon, coast$lat) == 1)
+
+# Plot non null POC flux that are inland
+g_obs_flux %>% 
+  mutate(model_depth = paste0(model, " - ", depth, " m")) %>% 
+  ggplot() +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux > 0 & inland)) +
+  scale_fill_viridis_d(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "Inland POC") +
+  facet_wrap(~model_depth, ncol = 3) +
+  coord_quickmap(expand = 0)
+
+# Indeed some pixels to remove
+g_obs_flux <- g_obs_flux %>% 
+  mutate(poc_flux = ifelse(inland, NA, poc_flux)) %>%  # set inland POC flux to NA
+  select(-inland)
 ```
 
 ## Plot everything
