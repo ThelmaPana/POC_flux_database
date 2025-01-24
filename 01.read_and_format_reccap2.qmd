@@ -111,8 +111,8 @@ Let’s plot some maps to make sure everything is in order.
 #| fig-column: body-outset
 #| out-width: 100%
 ggplot(mod_flux_100) +
-  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux<br>(mg C m<sup>-2</sup> d<sup>-1</sup>)", title = "POC flux 100 m") +
   coord_quickmap(expand = 0) +
@@ -129,8 +129,8 @@ ggplot(mod_flux_100) +
 #| fig-column: body-outset
 #| out-width: 100%
 ggplot(mod_flux_1000) +
-  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux<br>(mg C m<sup>-2</sup> d<sup>-1</sup>)", title = "POC flux 1000 m") +
   coord_quickmap(expand = 0) +
@@ -146,7 +146,6 @@ ggplot(mod_flux_1000) +
 ```{r assemble}
 # Assemble
 mod_flux <- bind_rows(mod_flux_100, mod_flux_1000)
-
 ```
 
 Let’s also assign a colour for each model.
@@ -162,6 +161,40 @@ mod_flux <- mod_flux %>%
   left_join(colours, by = join_by(model)) %>% 
   arrange(model) %>% 
   mutate(model = fct_inorder(model)) # model as factor
+```
+
+## Clean
+
+### Remove inland points
+
+Some model have POC flux values for inland pixels. Set these to NA.
+
+```{r rm_inland}
+# Flag inland points
+mod_flux <- mod_flux %>% 
+  mutate(inland = sp::point.in.polygon(lon, lat, coast$lon, coast$lat) == 1)
+
+# Plot non null POC flux that are inland
+mod_flux %>% 
+  mutate(model_depth = paste0(model, " - ", depth, " m")) %>% 
+  ggplot() +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux > 0 & inland)) +
+  scale_fill_viridis_d(na.value = NA) +
+  labs(x = "Longitude", y = "Latitude", fill = "Inland POC") +
+  facet_wrap(~model_depth, ncol = 3) +
+  coord_quickmap(expand = 0)
+
+# Indeed some pixels to remove
+mod_flux <- mod_flux %>% 
+  mutate(poc_flux = ifelse(inland, NA, poc_flux)) %>%  # set inland POC flux to NA
+  select(-inland)
+```
+
+### Remove negative POC  fluxes
+
+```{r rm_neg}
+mod_flux <- mod_flux %>% mutate(poc_flux = ifelse(poc_flux < 0, NA, poc_flux))
 ```
 
 ## Plot everything
