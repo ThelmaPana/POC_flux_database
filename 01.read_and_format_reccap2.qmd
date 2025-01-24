@@ -141,24 +141,12 @@ ggplot(mod_flux_1000) +
   )
 ```
 
-## Assemble datasets on a common grid
-
-The target coordinates grid is:
-
--   longitude: -179° to 179° by 2°
-
--   latitude: -89° to 89° by 2°
+## Store together
 
 ```{r assemble}
-mod_flux <- mod_flux_100 %>%
-  bind_rows(mod_flux_1000) %>% 
-  mutate(
-    # round lon and lat
-    lon = roundp(lon, precision = 2, f = floor) + 1,
-    lat = roundp(lat, precision = 2, f = floor) + 1
-  ) %>% 
-  group_by(model, lon, lat, depth) %>%
-  summarise(poc_flux = mean(poc_flux, na.rm = TRUE), .groups = "drop") # compute mean POC flux
+# Assemble
+mod_flux <- bind_rows(mod_flux_100, mod_flux_1000)
+
 ```
 
 Let’s also assign a colour for each model.
@@ -176,7 +164,23 @@ mod_flux <- mod_flux %>%
   mutate(model = fct_inorder(model)) # model as factor
 ```
 
-## Bind datasets and save
+## Plot everything
+
+```{r plot_all}
+mod_flux %>% 
+  mutate(model_depth = paste0(model, " - ", depth, " m")) %>% 
+  ggplot() +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA, trans = "log1p") +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  facet_wrap(~model_depth, ncol = 3) +
+  coord_quickmap(expand = 0)
+```
+
+All good!
+
+## Save
 
 ```{r bind_and_save}
 # Save
