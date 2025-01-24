@@ -97,6 +97,7 @@ poc_tot <- lapply(mod_list, function(mod_name) {
 
 # Save computed integrated fluxes
 save(poc_tot, file = "data/03.poc_flux_int.Rdata")
+write_csv(poc_tot %>% select(-colour), file = "data/03.poc_flux_int.csv")
 ```
 
 Plot results of integrated POC fluxes.
