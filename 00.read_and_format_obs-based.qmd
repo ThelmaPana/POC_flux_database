@@ -330,13 +330,17 @@ g_obs_flux <- g_obs_flux %>%
 
 ## Plot everything
 
+Generate interaction between model and depth to plot all combinations.
+
 ```{r plot_all}
-ggplot(g_obs_flux) +
+g_obs_flux %>% 
+  mutate(model_depth = paste0(model, " - ", depth, " m")) %>% 
+  ggplot() +
   geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
   scale_fill_viridis_c(na.value = NA, trans = "log1p") +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
-  facet_wrap(~model) +
+  facet_wrap(~model_depth, ncol = 3) +
   coord_quickmap(expand = 0)
 ```
 
