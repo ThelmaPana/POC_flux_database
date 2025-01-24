@@ -125,6 +125,7 @@ ggplot(df_now_2022) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  ggtitle("Nowicki 2022") +
   coord_quickmap(expand = 0) +
   facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
@@ -169,6 +170,7 @@ ggplot(df_sch_2000) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
   scale_fill_viridis_c(na.value = NA) +
   labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  ggtitle("Schlitzer 2000") +
   coord_quickmap(expand = 0) +
   facet_wrap(~depth, ncol = 1, labeller = labeller(depth = function(x) paste0(x, " m")))
 ```
@@ -227,7 +229,7 @@ ggplot(df_sieg_2014) +
 # List names of models and target names in the mat file
 calipso_models <- tribble(
   ~target, ~model,
-  "EPCDn", "Dunne 2014",
+  "EPCDn", "Dunne 2007",
   "EPCHn", "Henson 2012",
   "EPCLC", "Laws 2011",
   "EPCLF", "Laws 2000",
@@ -238,7 +240,7 @@ lon_values <- mat_calipso$lonE[1,]
 lat_values <- mat_calipso$latE[,1] # lat grid is not regular!!!
 
 # Apply an anonymous function to all targets and bind rows into a single dataframe
-df_others <- map_dfr(calipso_models$target, function(targ) {
+df_epc <- map_dfr(calipso_models$target, function(targ) {
   
   # Extract the relevant matrix for the target
   d <- mat_calipso[[targ]]
@@ -282,7 +284,7 @@ df_others <- map_dfr(calipso_models$target, function(targ) {
   return(df)
 })
 
-ggplot(df_others) +
+ggplot(df_epc) +
   geom_tile(aes(x = lon, y = lat, fill = poc_flux)) +
   geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
   scale_fill_viridis_c(na.value = NA, trans = "log1p") +
@@ -292,27 +294,18 @@ ggplot(df_others) +
 
 ```
 
-## Assemble datasets on a common grid
+## Store together and save
 
-The target coordinates grid is:
+NB: each dataset has its own coordinates grid.
 
--   longitude: -179° to 179° by 2°
-
--   latitude: -89° to 89° by 2°
-
-```{r assemble}
-# List dataframes to process
-df_list <- list(df_wang_2023, df_now_2022, df_sch_2000, df_sieg_2014, df_others)
-
-# Let’s purrr!
-g_obs_flux <- map_dfr(df_list, ~ .x %>%
-  mutate(
-    # round lon and lat
-    lon = roundp(lon, precision = 2, f = floor) + 1,
-    lat = roundp(lat, precision = 2, f = floor) + 1
-  ) %>%
-  group_by(model, lon, lat, depth) %>%
-  summarise(poc_flux = mean(poc_flux, na.rm = TRUE), .groups = "drop") # compute mean POC flux
+```{r store}
+# Assemble
+g_obs_flux <- bind_rows(
+  df_wang_2023,
+  df_now_2022,
+  df_sch_2000,
+  df_sieg_2014,
+  df_epc
 )
 ```
 
@@ -328,14 +321,28 @@ colours <- g_obs_flux %>%
   mutate(
     colour = paletteer_d("miscpalettes::pastel", n = n())
   )
+
 g_obs_flux <- g_obs_flux %>% 
   left_join(colours, by = join_by(model)) %>% 
   arrange(model) %>% 
   mutate(model = fct_inorder(model)) # model as factor
-
 ```
 
-## Bind datasets and save
+## Plot everything
+
+```{r plot_all}
+ggplot(g_obs_flux) +
+  geom_raster(aes(x = lon, y = lat, fill = poc_flux)) +
+  geom_polygon(data = world, aes(x = lon, y = lat, group = group), fill = "grey") +
+  scale_fill_viridis_c(na.value = NA, trans = "log1p") +
+  labs(x = "Longitude", y = "Latitude", fill = "POC flux") +
+  facet_wrap(~model) +
+  coord_quickmap(expand = 0)
+```
+
+All good!
+
+## Save
 
 ```{r bind_and_save}
 # Save
