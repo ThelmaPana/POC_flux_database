@@ -31,6 +31,90 @@ g_obs_cols <- g_obs_flux %>% select(model, depth, colour) %>% distinct()
 
 mod_flux <- mod_flux %>% mutate(type = "RECCAP2")
 mod_cols <- mod_flux %>% select(model, depth, colour) %>% distinct()
+all_cols <- bind_rows(g_obs_cols, mod_cols) %>% 
+  select(model, colour) %>% 
+  distinct()
+```
+
+## Integrated POC  fluxes at 100 and 1000 m
+
+Need to iterate over all models.
+
+```{r int_fluxes}
+# Store all model togethers
+all_flux <- bind_rows(g_obs_flux, mod_flux) 
+
+# List of models to process
+mod_list <- all_flux %>% pull(model) %>% unique() %>% as.character()
+
+# Iterate over models
+poc_tot <- lapply(mod_list, function(mod_name) {
+  # Get data for this model
+  mod_data <- all_flux %>% filter(model == mod_name)
+  
+  # Get coordinates grid
+  coord <- mod_data %>% select(lon, lat)
+  
+  ## Compute area of each pixel
+  # Size of longitude pixels (this is either 1 or 2 degrees)
+  lon_pix <- unique(coord %>% select(lon) %>% distinct() %>% arrange(lon) %>%  pull(lon) %>% diff())
+  
+  # Compute the area of one pixel at each latitude
+  # Then extand this computation to the entire earth
+  pix_area <- coord %>% 
+      select(lat) %>% 
+      distinct() %>% 
+      arrange(desc(lat)) %>% 
+    mutate(
+      lag_lat = lag(lat),
+      diff = lag_lat - lat,
+      diff = ifelse(is.na(diff), median(diff, na.rm = TRUE), diff)
+    ) %>% 
+    mutate(
+      lat1 = (lat + (diff / 2)) * pi / 180, # upper border
+      lat2 = (lat - (diff / 2)) * pi / 180, # lower border
+      area_m2 = ((pi/180)*(R)^2 * abs(sin(lat1) - sin(lat2)))*10^6 * lon_pix, # area in m²
+      area_km2 = area_m2 / 1e6, # area in km²
+    ) %>% 
+    select(lat, area_m2, area_km2)
+  
+  ## Multiply POC flux by pixel area and sum by layer
+  res <- mod_data %>% 
+    left_join(pix_area, by = join_by(lat)) %>% 
+    mutate(
+      # POC flux by area
+      poc_flux_int = poc_flux * area_m2,
+      # from mg C d⁻¹ to Pg C y⁻¹
+      poc_flux_int = poc_flux_int * 365.25 * 10^(-18),
+    ) %>% 
+    # sum by depth
+    group_by(model, depth, type, colour) %>% 
+    summarise(poc_flux_int = sum(poc_flux_int, na.rm = TRUE), .groups = "drop")
+
+  return(res)
+}) %>% 
+  bind_rows()
+
+# Save computed integrated fluxes
+save(poc_tot, file = "data/03.poc_flux_int.Rdata")
+```
+
+Plot results of integrated POC fluxes.
+
+```{r plot_int_flux}
+poc_tot %>% 
+  mutate(depth = paste0(depth, " m")) %>% 
+  ggplot() +
+  geom_col(aes(x = model, y = poc_flux_int, fill = model), show.legend = FALSE) +
+  coord_flip() +
+  facet_grid(type~depth, scales = "free") +
+  labs(y = "POC flux (Pg C y<sup>-1</sup>)", x = "Model") +
+  scale_fill_manual(values = setNames(as.character(all_cols$colour), all_cols$model)) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    strip.background = element_blank()
+  )
 ```
 
 ## Plot POC flux VS latitude
@@ -47,7 +131,7 @@ p1_100 <- ggplot(
   ) +
   geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
   #scale_colour_manual(values = g_obs_cols$colour) +
-  scale_colour_manual(values = g_obs_cols %>% filter(depth == 100) %>% pull(colour)) +
+  scale_colour_manual(values = setNames(as.character(all_cols$colour), all_cols$model)) +
   labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "Glob. obs.") +
   xlim(0, NA) +
   theme_classic() +
@@ -60,7 +144,7 @@ p2_100 <- ggplot(
   ) +
   geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
   #scale_colour_manual(values = mod_cols$colour) +
-  scale_colour_manual(values = mod_cols %>% filter(depth == 100) %>% pull(colour)) +
+  scale_colour_manual(values = setNames(as.character(all_cols$colour), all_cols$model)) +
   labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "RECCAP2") +
   xlim(0, NA) +
   theme_classic() +
@@ -81,7 +165,7 @@ p1_1000 <- ggplot(
     aes(x = poc_flux, y = lat, colour = model)
   ) +
   geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
-  scale_colour_manual(values = g_obs_cols %>% filter(depth == 1000) %>% pull(colour)) +
+  scale_colour_manual(values = setNames(as.character(all_cols$colour), all_cols$model)) +
   labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "Glob. obs.") +
   xlim(0, NA) +
   theme_classic() +
@@ -94,7 +178,7 @@ p2_1000 <- ggplot(
   ) +
   geom_smooth(se = FALSE, orientation = "y", span = 0.3, linewidth = 0.5) +
   #scale_colour_manual(values = mod_cols$colour) +
-  scale_colour_manual(values = mod_cols %>% filter(depth == 1000) %>% pull(colour)) +
+  scale_colour_manual(values = setNames(as.character(all_cols$colour), all_cols$model)) +
   labs(x = "POC flux (mg C m<sup>-2</sup> d<sup>-1</sup>)", y = "Latitude", colour = "Model", title = "RECCAP2") +
   xlim(0, NA) +
   theme_classic() +
