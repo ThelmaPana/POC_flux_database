@@ -351,6 +351,9 @@ g_obs_flux %>%
 g_obs_flux <- g_obs_flux %>% 
   mutate(poc_flux = ifelse(inland, NA, poc_flux)) %>%  # set inland POC flux to NA
   select(-inland)
+
+# Also drop negative flux values
+g_obs_flux <- g_obs_flux %>% mutate(poc_flux = ifelse(poc_flux < 0, NA, poc_flux))
 ```
 
 ## Plot everything
