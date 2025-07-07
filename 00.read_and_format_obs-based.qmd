@@ -180,7 +180,7 @@ ggplot(df_sch_2000) +
 Data from Siegel 2014, Henson 2012, Laws 2000, Laws 2011 and Dunne 2014 are in the same mat file, but Siegel 2014 has a slightly different coordinates grid. These are already mg C m⁻² d⁻¹, no need to convert.
 
 ```{r siegel_2014}
-mat_calipso <- readMat("data/raw/export4CALIPSO.mat")
+mat_calipso <- readMat("data/raw/export4CALIPSO2.mat")
 
 # Get lon and lat values for Siegel 2014
 lon_values <- mat_calipso$lon[1,]
@@ -231,8 +231,9 @@ calipso_models <- tribble(
   ~target, ~model,
   "EPCDn", "Dunne 2007",
   "EPCHn", "Henson 2012",
-  "EPCLC", "Laws 2011",
+  "EPCLC", "Laws 20XX",
   "EPCLF", "Laws 2000",
+  "EPCL11", "Laws 2011"
 )
 
 # Get lon and lat values
@@ -292,6 +293,8 @@ ggplot(df_epc) +
   facet_wrap(~model) +
   coord_quickmap(expand = 0)
 ```
+
+### 
 
 ## Store together and save
 
