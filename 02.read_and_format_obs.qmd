@@ -1,6 +1,7 @@
 ---
 title: "Read and format POC flux observations from Simon’s database"
 author: "Thelma Panaïotis"
+date: today
 format:
   html:
     toc: true
@@ -22,10 +23,23 @@ source("utils.R")
 ## Read data
 
 ```{r read_obs}
-obs_flux <- read_csv("data/raw/Global_POC_Database_Simon_Cleaned.csv", show_col_types = FALSE) %>% 
-  # select relevant columns
-  select(lon = longitude_final, lat = latitude_final, depth = `depth, water [m]`, datetime = `date/time`, poc_flux_obs = `carbon, organic, particulate, flux [mg/m**2/day]`)
+# Read POC flux, in mg/m²/day
+obs_flux <- readr::read_csv("data/raw/Global_POC_Database_2025-07-01.csv", show_col_types = FALSE)
 
+# Clean: keep only sediment traps and select relevant columns
+obs_flux <- obs_flux %>% 
+  filter(
+    New_category == "sediment trap",
+    !is.na(depth) # drop unknown depth (only 12 cases)
+  ) %>% 
+  select(
+    lon = lon_grid, lat = lat_grid,
+    depth,
+    poc_flux_obs = poc_converted,
+    converted_date, converted_date_deployment, converted_date_recovery,
+    date_formatted, date_num, duration
+  ) %>% 
+  mutate(duration = duration %>% as.numeric() %>% round()) # make duration (days) a number and round it
 ```
 
 The dataset contains `r nrow(obs_flux)` observations of POC fluxes.
@@ -167,5 +181,5 @@ obs_flux_targ <- bind_rows(
 Save the resulting dataset.
 
 ```{r save}
-save(obs_flux_targ, file = "data/01.obs_flux_targ.Rdata")
+save(obs_flux_targ, file = "data/02.obs_flux_targ.Rdata")
 ```

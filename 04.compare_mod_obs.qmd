@@ -1,6 +1,7 @@
 ---
 title: "Compare POC flux values from models and from observations"
 author: "Thelma Panaïotis"
+date: today
 format:
   html:
     toc: true
@@ -33,7 +34,6 @@ g_obs_cols <- g_obs_flux %>% select(model, depth, colour) %>% distinct()
 mod_flux <- mod_flux %>% mutate(type = "RECCAP2")
 mod_cols <- mod_flux %>% select(model, depth, colour) %>% distinct()
 
-
 # Observations
 load("data/02.obs_flux_targ.Rdata")
 ```
@@ -41,6 +41,40 @@ load("data/02.obs_flux_targ.Rdata")
 ## Assemble model and observation data
 
 First, we need to round observation coordinates to match those of models (1° resolution).  Then we can plot model VS  observations both at 100 and 1000 m.
+
+### Regularize model grids
+
+Let’s start by regularizing model grids.
+
+```{r reg_grid_model}
+# Global obs products
+g_obs_flux <- g_obs_flux |> 
+  group_split(model, colour, type) |> 
+  map_dfr(~.x |> 
+    mutate(
+      # round lon and lat
+      lon = roundp(lon, precision = 2, f = floor) + 1,
+      lat = roundp(lat, precision = 2, f = floor) + 1
+    ) %>%
+    group_by(model, colour, type, lon, lat, depth) %>%
+    summarise(poc_flux = mean(poc_flux, na.rm = TRUE), .groups = "drop") |> 
+    select(lon, lat, depth, poc_flux, model, colour, type)
+  )
+
+# RECCAP models
+mod_flux <- mod_flux |> 
+  group_split(model, colour, type) |> 
+  map_dfr(~.x |> 
+    mutate(
+      # round lon and lat
+      lon = roundp(lon, precision = 2, f = floor) + 1,
+      lat = roundp(lat, precision = 2, f = floor) + 1
+    ) %>%
+    group_by(model, colour, type, lon, lat, depth) %>%
+    summarise(poc_flux = mean(poc_flux, na.rm = TRUE), .groups = "drop") |> 
+    select(lon, lat, depth, poc_flux, model, colour, type)
+  )
+```
 
 ### 100 m
 
@@ -51,6 +85,7 @@ First, we need to round observation coordinates to match those of models (1° re
 
 # Global obs based
 comp_100_g_obs <- obs_flux_targ %>% 
+  select(lon, lat, depth, target_depth, poc_flux_obs) |> 
   filter(target_depth == 100) %>% 
   # Round lon and lat to match models (2° resolution on odd grid)
   mutate(
