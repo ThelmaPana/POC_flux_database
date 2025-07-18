@@ -17,6 +17,7 @@ execute:
 ```{r set_up}
 #| output: false
 #| cache: false
+#| warning: false
 source("utils.R")
 ```
 
@@ -29,17 +30,21 @@ obs_flux <- readr::read_csv("data/raw/Global_POC_Database_2025-07-01.csv", show_
 # Clean: keep only sediment traps and select relevant columns
 obs_flux <- obs_flux %>% 
   filter(
-    New_category == "sediment trap",
-    !is.na(depth) # drop unknown depth (only 12 cases)
+    New_category %in% c("sediment trap", "Thorium"),
+    !is.na(depth) # drop unknown depth
   ) %>% 
   select(
-    lon = lon_grid, lat = lat_grid,
+    method = New_category,
+    lon = longitude, lat = latitude,
     depth,
     poc_flux_obs = poc_converted,
     converted_date, converted_date_deployment, converted_date_recovery,
     date_formatted, date_num, duration
   ) %>% 
-  mutate(duration = duration %>% as.numeric() %>% round()) # make duration (days) a number and round it
+  # make duration (days) a number and round it
+  mutate(duration = duration %>% as.numeric() %>% round()) |> 
+  # generate an ID for each observation
+  mutate(id = row_number() |> as.character(), .before = method)
 ```
 
 The dataset contains `r nrow(obs_flux)` observations of POC fluxes.
@@ -158,7 +163,7 @@ bind_rows(
 ```
 
 ::: callout-note
-For 1000 m, there is a strong increase in the number of observations (× 3.25) when considering the range 800 - 1200 m instead of 1000 m. Let’s thus use the 20% range for both 100 and 1000 m.
+For 1000 m, there is a strong increase in the number of observations (× 2.5) when considering the range 800 - 1200 m instead of 1000 m. Let’s thus use the 20% range for both 100 and 1000 m.
 :::
 
 ## Filter target depth
